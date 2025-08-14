@@ -112,7 +112,23 @@ const c = el('c'), ctx = c.getContext('2d');
 
 function todayISO(){ const d = new Date(); const m = String(d.getMonth()+1).padStart(2,'0'); const day = String(d.getDate()).padStart(2,'0'); return `${d.getFullYear()}-${m}-${day}`}
 
-function seededRand(seed){ seed = String(seed || ''); let h = 1779033703 ^ seed.length; for(let i=0;i<seed.length;i++){ h = Math.imul(h ^ seed.charCodeAt(i), 3432918353); h = (h<<13) | (h>>>19); } return function(){ h = Math.imul(h ^ (h>>>16), 2246822507); h = Math.imul(h ^ (h>>>13), 3266489909); const t = (h ^= h>>>16) >>> 0; return t / 4294967296; }}
+// seeded pseudo-random generator that treats `0` as a valid seed
+function seededRand(seed){
+  // Using `|| ''` would treat numeric 0 as an empty seed. Use nullish coalescing
+  // to only fall back when `seed` is truly `null` or `undefined`.
+  seed = String(seed ?? '');
+  let h = 1779033703 ^ seed.length;
+  for(let i=0;i<seed.length;i++){
+    h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
+    h = (h<<13) | (h>>>19);
+  }
+  return function(){
+    h = Math.imul(h ^ (h>>>16), 2246822507);
+    h = Math.imul(h ^ (h>>>13), 3266489909);
+    const t = (h ^= h>>>16) >>> 0;
+    return t / 4294967296;
+  }
+}
 
 function pseudoQR(x,y,size,data){ const r = seededRand(data); const grid = 25, cell = size/grid; ctx.save(); ctx.translate(x,y); ctx.fillStyle = '#000'; ctx.fillRect(0,0,size,size); for(let i=2;i<grid-2;i++){ for(let j=2;j<grid-2;j++){ if(r()>0.64) { ctx.clearRect(i*cell, j*cell, cell-1, cell-1); } } } ctx.clearRect(2*cell,2*cell,5*cell,5*cell); ctx.clearRect((grid-7)*cell,2*cell,5*cell,5*cell); ctx.clearRect(2*cell,(grid-7)*cell,5*cell,5*cell); ctx.restore(); }
 
