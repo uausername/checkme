@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Чек-Статус — генератор красивых квитанций</title>
+  <style>
+    :root { --bg:#0b0b10; --card:#12121a; --muted:#9aa0a6; --text:#e6e8eb; --accent:#6ee7b7; --accent2:#60a5fa; }
+    *{box-sizing:border-box}
+    body{margin:0; font:14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, "Noto Sans", Arial, "Apple Color Emoji","Segoe UI Emoji"; color:var(--text); background:radial-gradient(1200px 600px at 10% -10%, #1b1b28 0, #0b0b10 70%)}
+    header{padding:18px 16px; display:flex; gap:10px; align-items:center; justify-content:center; border-bottom:1px solid #1f2330; position:sticky; top:0; backdrop-filter:saturate(1.2) blur(6px); background:linear-gradient(#0b0b10cc,#0b0b10cc)}
+    header h1{font-size:18px; margin:0; letter-spacing:.4px}
+    main{max-width:1100px; margin:18px auto; padding:0 14px; display:grid; grid-template-columns: 1fr 1fr; gap:14px}
+    @media (max-width: 920px){ main{grid-template-columns:1fr} }
+    .panel{background:var(--card); border:1px solid #1f2330; border-radius:18px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,.35)}
+    .grid{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+    label{display:block; font-size:12px; color:var(--muted); margin-bottom:6px}
+    input, select, button, textarea{width:100%; padding:12px 12px; border-radius:12px; border:1px solid #2a2f3c; background:#0f1118; color:var(--text)}
+    input:focus,select:focus,textarea:focus{outline:none; border-color:#2f7de9; box-shadow:0 0 0 3px rgba(96,165,250,.25)}
+    .row{display:flex; gap:10px}
+    .row > *{flex:1}
+    button{cursor:pointer; background:linear-gradient(90deg, var(--accent2), var(--accent)); border:none; color:#081019; font-weight:700; letter-spacing:.2px}
+    .muted{color:var(--muted); font-size:12px}
+    .template{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin-top:8px}
+    .card{position:relative; padding:10px; border:1px solid #2a2f3c; background:#0e1117; border-radius:14px; cursor:pointer; transition:.2s}
+    .card:hover{transform:translateY(-1px); border-color:#3a4154}
+    .active{outline:2px solid #60a5fa}
+    .lock{position:absolute; top:8px; right:10px; font-size:11px; color:#c9a227; background:#2a210b; border:1px solid #7a5a12; padding:3px 6px; border-radius:999px}
+    .actions{display:flex; gap:10px; margin-top:10px}
+    canvas{width:100%; height:auto; display:block; background:#fff; border-radius:16px}
+    .foot{margin-top:10px; display:flex; align-items:center; justify-content:space-between; gap:10px}
+    .badge{font-size:11px; color:#a9f0d1; background:#0a221a; border:1px solid #245b46; padding:6px 8px; border-radius:999px}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Чек-Статус · красиво выглядеть в чатах «ради отчётности» 😉</h1>
+  </header>
+
+  <main>
+    <section class="panel">
+      <div class="grid">
+        <div>
+          <label>Сумма</label>
+          <input id="amount" type="number" step="0.01" min="0" value="20"/>
+        </div>
+        <div>
+          <label>Валюта</label>
+          <select id="currency">
+            <option value="₴">₴ UAH</option>
+            <option value="$">$ USD</option>
+            <option value="€">€ EUR</option>
+          </select>
+        </div>
+        <div>
+          <label>Кому (получатель)</label>
+          <input id="to" placeholder="маме на кофе" value="маме на кофе"/>
+        </div>
+        <div>
+          <label>Повод / комментарий</label>
+          <input id="note" placeholder="за общее такси" value="за общее такси"/>
+        </div>
+        <div>
+          <label>Категория</label>
+          <select id="category">
+            <option>Еда</option>
+            <option>Такси</option>
+            <option>Подарок</option>
+            <option>Донат</option>
+            <option>Коммуналка</option>
+          </select>
+        </div>
+        <div>
+          <label>Дата</label>
+          <input id="date" type="date"/>
+        </div>
+        <div>
+          <label>Ваш ник/имя</label>
+          <input id="from" placeholder="Иван" value="Иван"/>
+        </div>
+        <div>
+          <label>Водяной знак (CTA)</label>
+          <input id="watermark" value="сделай свою&#58; your-link"/>
+        </div>
+      </div>
+
+      <div style="margin-top:12px">
+        <label>Стиль чека</label>
+        <div class="template" id="templateList"></div>
+        <div class="muted" style="margin-top:6px">Бесплатные стили отмечены синим. "VIP Неон" — платный пример (заблокирован), чтобы показать место для монетизации.</div>
+      </div>
+
+      <div class="actions">
+        <button id="btnGen">Сгенерировать</button>
+        <button id="btnDl">Скачать PNG</button>
+        <button id="btnShare">Поделиться</button>
+      </div>
+      <div class="foot">
+        <span class="badge">Подсказка: делитесь чеком в чат — получатель увидит водяной знак и сможет сделать свой. Органический рост без рекламы.</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <canvas id="c" width="900" height="1400" aria-label="Превью чека"></canvas>
+    </section>
+  </main>
+
+<script>
+const el = id => document.getElementById(id);
+const amount = el('amount'), currency = el('currency'), to = el('to'), note = el('note'), cat = el('category'), dateEl = el('date'), from = el('from'), wm = el('watermark');
+const c = el('c'), ctx = c.getContext('2d');
+
+function todayISO(){ const d = new Date(); const m = String(d.getMonth()+1).padStart(2,'0'); const day = String(d.getDate()).padStart(2,'0'); return `${d.getFullYear()}-${m}-${day}`}
+
+function seededRand(seed){ seed = String(seed || ''); let h = 1779033703 ^ seed.length; for(let i=0;i<seed.length;i++){ h = Math.imul(h ^ seed.charCodeAt(i), 3432918353); h = (h<<13) | (h>>>19); } return function(){ h = Math.imul(h ^ (h>>>16), 2246822507); h = Math.imul(h ^ (h>>>13), 3266489909); const t = (h ^= h>>>16) >>> 0; return t / 4294967296; }}
+
+function pseudoQR(x,y,size,data){ const r = seededRand(data); const grid = 25, cell = size/grid; ctx.save(); ctx.translate(x,y); ctx.fillStyle = '#000'; ctx.fillRect(0,0,size,size); for(let i=2;i<grid-2;i++){ for(let j=2;j<grid-2;j++){ if(r()>0.64) { ctx.clearRect(i*cell, j*cell, cell-1, cell-1); } } } ctx.clearRect(2*cell,2*cell,5*cell,5*cell); ctx.clearRect((grid-7)*cell,2*cell,5*cell,5*cell); ctx.clearRect(2*cell,(grid-7)*cell,5*cell,5*cell); ctx.restore(); }
+
+function moneyStr(){ const val = parseFloat(amount.value||0).toFixed(2); return `${val} ${currency.value}`; }
+
+function line(y, text, opt={}){ const {size=20, align='left', color='#111', weight='normal', font='Inter, system-ui'} = opt; ctx.save(); ctx.fillStyle=color; ctx.font = `${weight} ${size}px ${font}`; ctx.textAlign = align; const x = align==='left'? 60 : (align==='center'? c.width/2 : c.width-60); ctx.fillText(text, x, y); ctx.restore(); }
+
+function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+function drawHeader(bgTop,bgBot){ const grd = ctx.createLinearGradient(0,0,0,380); grd.addColorStop(0,bgTop); grd.addColorStop(1,bgBot); roundRect(40,40,c.width-80,300,24); ctx.fillStyle=grd; ctx.fill(); ctx.save(); ctx.translate(80,80); ctx.fillStyle='rgba(255,255,255,.85)'; ctx.beginPath(); ctx.arc(0,0,26,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#16a34a'; ctx.beginPath(); ctx.arc(0,0,22,0,Math.PI*2); ctx.fill(); ctx.lineWidth=4; ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.beginPath(); ctx.moveTo(-10,0); ctx.lineTo(-2,10); ctx.lineTo(14,-8); ctx.stroke(); ctx.restore(); }
+
+function drawCommonBottom(){ ctx.fillStyle = '#e7e9ee'; ctx.fillRect(60, 1060, c.width-120, 2); pseudoQR(60, 1085, 180, `${from.value}|${to.value}|${amount.value}|${dateEl.value}`); ctx.fillStyle='#6b7280'; ctx.font = '600 18px system-ui'; ctx.fillText('для отчётности', 250, 1130); ctx.fillStyle='#9aa0a6'; ctx.font = '400 18px system-ui'; ctx.fillText('категория · ' + cat.value, 250, 1160); ctx.fillStyle='#9aa0a6'; ctx.fillText(formatDate(dateEl.value), 250, 1188); ctx.fillStyle='#a1a1aa'; ctx.font = '700 18px system-ui'; ctx.textAlign = 'right'; ctx.fillText(wm.value, c.width-60, 1360); }
+
+function formatDate(iso){ const d = iso? new Date(iso) : new Date(); const mm = String(d.getMonth()+1).padStart(2,'0'); const dd = String(d.getDate()).padStart(2,'0'); return `${dd}.${mm}.${d.getFullYear()}`; }
+
+function hashStr(s){ let h=0; s = String(s||''); for(let i=0;i<s.length;i++){ h=((h<<5)-h)+s.charCodeAt(i); h|=0; } return Math.abs(h); }
+
+function drawLedger(){ ctx.fillStyle = '#f8fafc'; ctx.fillRect(0,0,c.width,c.height); drawHeader('#dbeafe','#f1f5f9'); line(110, 'ОПЛАЧЕНО', {size:24, color:'#0f172a', weight:'700'}); line(180, moneyStr(), {size:64, color:'#0b1220', weight:'800'}); roundRect(40,370,c.width-80,660,18); ctx.fillStyle='#ffffff'; ctx.fill(); ctx.strokeStyle='#e5e7eb'; ctx.stroke(); line(430, `Получатель: ${to.value}`, {size:26, color:'#0f172a', weight:'700'}); line(480, `Отправитель: ${from.value}`, {size:22, color:'#1f2937'}); line(530, `Назначение: ${note.value}`, {size:22, color:'#1f2937'}); const used = Math.min(100, Math.round((parseFloat(amount.value)||0)/100*100)); line(600, `Бюджет (${cat.value}): ${used}%`, {size:18, color:'#475569'}); ctx.fillStyle='#e5e7eb'; roundRect(60, 620, c.width-120, 24, 10); ctx.fill(); ctx.fillStyle='#60a5fa'; roundRect(60, 620, (c.width-120)*used/100, 24, 10); ctx.fill(); ctx.strokeStyle='#eef2f7'; for(let y=700; y<1000; y+=34){ ctx.beginPath(); ctx.moveTo(60,y); ctx.lineTo(c.width-60,y); ctx.stroke(); } line(1018, `Код операции: ${String(Math.abs(hashStr(from.value+to.value+amount.value))).slice(0,10)}`, {size:16, color:'#64748b'}); drawCommonBottom(); }
+
+function drawFestive(){ const g = ctx.createLinearGradient(0,0,c.width,c.height); g.addColorStop(0,'#fff7ed'); g.addColorStop(1,'#fffbeb'); ctx.fillStyle=g; ctx.fillRect(0,0,c.width,c.height); drawHeader('#fde68a','#fff7ed'); line(110, 'УРА! ПЕРЕВОД ПРОШЁЛ', {size:24, color:'#7c2d12', weight:'800'}); line(180, moneyStr(), {size:64, color:'#7c2d12', weight:'900'}); roundRect(40,370,c.width-80,660,24); ctx.fillStyle='#ffffffcc'; ctx.fill(); ctx.strokeStyle='#f5d0fe'; ctx.stroke(); line(440, `Кому: ${to.value}`, {size:28, color:'#111827', weight:'800'}); line(490, `От: ${from.value}`, {size:22, color:'#374151'}); line(540, `За: ${note.value}`, {size:22, color:'#374151'}); for(let i=0;i<80;i++){ ctx.save(); ctx.globalAlpha=.7; ctx.fillStyle = ['#fca5a5','#93c5fd','#86efac','#fde68a'][i%4]; ctx.beginPath(); ctx.arc(70+((i*11)%c.width), 650 + ((i*i)%280), 4 + (i%3), 0, Math.PI*2); ctx.fill(); ctx.restore(); } line(1018, 'Счастье измеряется мелочами ✨', {size:18, color:'#6b7280'}); drawCommonBottom(); }
+
+function drawNeon(){ const bg = ctx.createLinearGradient(0,0,0,c.height); bg.addColorStop(0,'#0b0b14'); bg.addColorStop(1,'#111123'); ctx.fillStyle=bg; ctx.fillRect(0,0,c.width,c.height); for(let i=0;i<8;i++){ ctx.strokeStyle = `rgba(80,200,255,${0.15 - i*0.015})`; ctx.lineWidth = 4 + i; roundRect(35+i*6,35+i*6,c.width-70-i*12,c.height-70-i*12,24); ctx.stroke(); } line(120, 'PREMIUM', {size:20, color:'#94a3b8', weight:'700'}); line(180, moneyStr(), {size:72, color:'#7dd3fc', weight:'900'}); line(240, 'разблокируйте стиль, чтобы убрать плашку', {size:16, color:'#64748b'}); ctx.fillStyle='rgba(2,6,23,.6)'; roundRect(60, 280, c.width-120, 750, 20); ctx.fill(); line(360, `${from.value} → ${to.value}`, {size:32, color:'#e2e8f0', weight:'800'}); line(410, note.value, {size:22, color:'#94a3b8'}); ctx.save(); ctx.translate(c.width-260, 80); ctx.rotate(-.1); ctx.fillStyle='#f59e0b'; ctx.fillRect(-120,-16,240,32); ctx.fillStyle='#111827'; ctx.font='900 18px system-ui'; ctx.textAlign='center'; ctx.fillText('ПЛАТНЫЙ СТИЛЬ',0,6); ctx.restore(); drawCommonBottom(); }
+
+const templates = [ { id:'ledger', name:'Строгий учет', free:true, desc:'серо-белый, аккуратный', draw: drawLedger }, { id:'fest', name:'Праздник', free:true, desc:'теплый градиент и стикер', draw: drawFestive }, { id:'neon', name:'VIP Неон', free:false, desc:'неоновый VIP блеск', draw: drawNeon } ];
+let currentTpl = 'ledger';
+
+function renderTemplateCards(){ const box = el('templateList'); box.innerHTML = ''; templates.forEach(t=>{ const card = document.createElement('button'); card.className = 'card' + (currentTpl===t.id ? ' active':''); card.innerHTML = `<div style="font-weight:700; margin-bottom:6px">${t.name}</div><div class="muted">${t.desc}</div>`; if(!t.free){ const l = document.createElement('div'); l.className = 'lock'; l.textContent = 'премиум'; card.appendChild(l); card.disabled = true; card.style.opacity = .65; card.style.cursor='not-allowed'; } card.addEventListener('click', ()=>{ currentTpl = t.id; renderTemplateCards(); generate(); }); box.appendChild(card); }); }
+
+function generate(){ if(!dateEl.value) dateEl.value = todayISO(); ctx.clearRect(0,0,c.width,c.height); const tpl = templates.find(t=>t.id===currentTpl); (tpl && typeof tpl.draw === 'function' ? tpl.draw() : drawLedger()); }
+
+function downloadPNG(){ const a = document.createElement('a'); a.href = c.toDataURL('image/png'); a.download = `check_${Date.now()}.png`; a.click(); }
+
+async function sharePNG(){ try{ const blob = await new Promise(res => c.toBlob(res,'image/png')); const file = new File([blob], 'check.png', {type:'image/png'}); if(navigator.canShare && navigator.canShare({ files:[file] })){ await navigator.share({ files:[file], title:'Чек-Статус', text:'Мой чек для отчетности' }); } else { downloadPNG(); } }catch(e){ downloadPNG(); } }
+
+['input','change'].forEach(ev=>{ [amount, currency, to, note, cat, dateEl, from, wm].forEach(x=>x.addEventListener(ev, generate)); });
+
+el('btnGen').onclick = generate;
+el('btnDl').onclick = downloadPNG;
+el('btnShare').onclick = sharePNG;
+
+renderTemplateCards(); if(!dateEl.value) dateEl.value = todayISO(); generate();
+</script>
+</body>
+</html>
